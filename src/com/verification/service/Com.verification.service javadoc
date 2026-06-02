@@ -1,0 +1,129 @@
+package com.verification.service;
+
+import com.verification.model.Course;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Handles all business logic for course verification.
+ * 
+ * {@code VerificationService} is the central service class that manages the submission,
+ * verification, and status checking of course results. It maintains an in-memory database
+ * of courses indexed by their course codes and provides methods to submit new courses,
+ * verify existing submissions, and query verification status.
+ * 
+ * <p><b>Key Responsibilities:</b>
+ * <ul>
+ *   <li>Managing course submissions and preventing duplicates</li>
+ *   <li>Updating verification scores and status</li>
+ *   <li>Retrieving verification information</li>
+ *   <li>Validating input data before processing</li>
+ * </ul>
+ * </p>
+ * 
+ * <p><b>Thread Safety:</b> This class is not thread-safe. For concurrent access,
+ * external synchronization or thread-safe patterns should be implemented.</p>
+ * 
+ * <p><b>Storage:</b> This implementation uses an in-memory {@link HashMap} for storage.
+ * Data is not persisted and will be lost when the application terminates.</p>
+ * 
+ * @author Abdulprogrammer
+ * @version 1.0
+ * @since 1.0
+ * 
+ * @see Course
+ */
+public class VerificationService {
+    
+    /**
+     * In-memory database storing courses indexed by their course codes (in uppercase).
+     */
+    private final Map<String, Course> courseDatabase = new HashMap<>();
+
+    /**
+     * Submits a course for verification.
+     * 
+     * <p>This method registers a new course in the verification system. The course code
+     * is normalized to uppercase before storage. Duplicate submissions with the same
+     * course code are not allowed.</p>
+     * 
+     * <p><b>Input Validation:</b>
+     * <ul>
+     *   <li>Course code must not be null or blank</li>
+     *   <li>Course code must be unique in the system</li>
+     *   <li>Score must be in the range [0, 100] (validated by {@link Course} constructor)</li>
+     * </ul>
+     * </p>
+     * 
+     * @param code the course code; must not be null or blank
+     * @param title the course title; should not be empty
+     * @param score the submitted score in the range [0, 100]
+     * 
+     * @throws IllegalArgumentException if code is null or blank
+     * @throws IllegalArgumentException if a course with the same code already exists
+     * @throws AssertionError if score is outside the range [0, 100] (from Course constructor)
+     * 
+     * @see #verifyCourse(String, double)
+     * @see #checkStatus(String)
+     */
+    public void submitCourse(String code, String title, double score) {
+        if (code == null || code.isBlank()) {
+            throw new IllegalArgumentException("Course code is required");
+        }
+        String key = code.trim().toUpperCase();
+        if (courseDatabase.containsKey(key)) {
+            throw new IllegalArgumentException("Course already submitted");
+        }
+        courseDatabase.put(key, new Course(key, title, score));
+    }
+
+    /**
+     * Verifies a course by updating its verified score.
+     * 
+     * <p>This method is called by verification officers to confirm or modify the
+     * submitted score. Upon successful verification, the course status is automatically
+     * updated to "APPROVED".</p>
+     * 
+     * <p><b>Preconditions:</b>
+     * <ul>
+     *   <li>The course must have been previously submitted</li>
+     *   <li>The new score must be in the range [0, 100]</li>
+     * </ul>
+     * </p>
+     * 
+     * @param code the course code to verify; case-insensitive
+     * @param newScore the verified score in the range [0, 100]
+     * 
+     * @throws IllegalArgumentException if the course code is not found in the database
+     * @throws IllegalArgumentException if newScore is outside the range [0, 100]
+     * 
+     * @see #submitCourse(String, String, double)
+     * @see Course#updateVerification(double)
+     */
+    public void verifyCourse(String code, double newScore) {
+        Course course = courseDatabase.get(code.toUpperCase());
+        if (course == null) {
+            throw new IllegalArgumentException("Course not found");
+        }
+        course.updateVerification(newScore);
+    }
+
+    /**
+     * Checks the verification status of a course.
+     * 
+     * <p>This method retrieves the {@link Course} object associated with the given
+     * course code, allowing the caller to inspect all course details including the
+     * submitted score, verified score, and current status.</p>
+     * 
+     * @param code the course code to check; case-insensitive
+     * 
+     * @return the {@link Course} object if found; {@code null} if the course does not exist
+     * 
+     * @see Course#getStatus()
+     * @see Course#getVerifiedScore()
+     * @see Course#getSubmittedScore()
+     */
+    public Course checkStatus(String code) {
+        return courseDatabase.get(code.toUpperCase());
+    }
+}
