@@ -1,0 +1,470 @@
+package com.verification.ui;
+
+import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.stage.Stage;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * The main GUI application for the Result Verification System.
+ * 
+ * {@code VerificationApp} is a JavaFX application that provides a user interface for
+ * submitting course scores for verification, verifying submitted scores, and checking
+ * the verification status of courses. The application uses a tabbed interface with
+ * three main functionalities:
+ * 
+ * <p><b>Features:</b>
+ * <ul>
+ *   <li><b>Submit Score Tab:</b> Allows users to submit a new course score for a student</li>
+ *   <li><b>Verify Score Tab:</b> Enables verification officers to review and confirm scores</li>
+ *   <li><b>Check Status Tab:</b> Displays the current verification status of a submitted score</li>
+ * </ul>
+ * </p>
+ * 
+ * <p><b>Data Storage:</b> Results are stored in-memory in a {@link HashMap} indexed by
+ * a composite key (studentId:courseCode). This storage is temporary and lost when the
+ * application exits.</p>
+ * 
+ * <p><b>Thread Safety:</b> This application is designed for single-threaded operation
+ * with JavaFX's event dispatch thread. Direct access to the results map from other
+ * threads is not thread-safe.</p>
+ * 
+ * @author Abdulprogrammer
+ * @version 1.0
+ * @since 1.0
+ * 
+ * @see Application
+ * @see Result
+ */
+public class VerificationApp extends Application {
+
+    /**
+     * In-memory storage for all verification results.
+     * 
+     * <p>Results are indexed by a composite key: {@code studentId:courseCode}
+     * This ensures uniqueness for each student-course combination.</p>
+     */
+    private Map<String, Result> results = new HashMap<>();
+
+    /**
+     * Helper class to encapsulate all data for a course verification result.
+     * 
+     * <p>This class stores comprehensive information about a student's course result,
+     * including personal identification, course details, score information, and
+     * verification status. It serves as a data container for the verification system.</p>
+     * 
+     * <p><b>Note:</b> All fields are package-private to allow direct access from the
+     * containing {@code VerificationApp} class.</p>
+     * 
+     * @see VerificationApp
+     */
+    public static class Result {
+        
+        /**
+         * The student ID (e.g., "CIS/STE/22/1088").
+         */
+        String studentId;
+        
+        /**
+         * The full name of the student.
+         */
+        String studentName;
+        
+        /**
+         * The course code (e.g., "SEN301").
+         */
+        String courseCode;
+        
+        /**
+         * The full title of the course (e.g., "Software Engineering").
+         */
+        String courseTitle;
+        
+        /**
+         * The current score (initially the submitted score, updated upon verification).
+         */
+        int score;
+        
+        /**
+         * Indicates whether the score has been verified.
+         * {@code true} if verified, {@code false} if pending verification.
+         */
+        boolean verified;
+
+        /**
+         * Creates a new Result with the provided course and student information.
+         * 
+         * <p>The result is initialized with {@code verified} set to {@code false}
+         * and the score set to the submitted value.</p>
+         * 
+         * @param studentId the student ID
+         * @param studentName the student's full name
+         * @param courseCode the course code
+         * @param courseTitle the course title
+         * @param score the initial submitted score
+         */
+        public Result(String studentId, String studentName, String courseCode, String courseTitle, int score) {
+            this.studentId = studentId;
+            this.studentName = studentName;
+            this.courseCode = courseCode;
+            this.courseTitle = courseTitle;
+            this.score = score;
+            this.verified = false;
+        }
+    }
+
+    /**
+     * Starts the JavaFX application and sets up the main window.
+     * 
+     * <p>This method is called automatically by the JavaFX framework. It creates a
+     * tabbed interface with three tabs for different verification operations and
+     * displays the main window.</p>
+     * 
+     * @param primaryStage the primary stage (main window) for the application
+     * 
+     * @see javafx.application.Application#start(Stage)
+     */
+    @Override
+    public void start(Stage primaryStage) {
+        TabPane tabPane = new TabPane();
+        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+
+        Tab submitTab = new Tab("Submit Score", createSubmitTab());
+        Tab verifyTab = new Tab("Verify Score", createVerifyTab());
+        Tab checkTab = new Tab("Check Status", createCheckTab());
+
+        tabPane.getTabs().addAll(submitTab, verifyTab, checkTab);
+
+        Scene scene = new Scene(tabPane, 520, 450);
+        primaryStage.setTitle("Result Verification System");
+        primaryStage.setScene(scene);
+        primaryStage.show();
+    }
+
+    /**
+     * Creates and returns the UI for submitting course scores.
+     * 
+     * <p>This tab allows users to input student information, course details, and a score.
+     * Upon submission, a new {@link Result} is created and stored in the results map.</p>
+     * 
+     * <p><b>Input Fields:</b>
+     * <ul>
+     *   <li>Student ID (required)</li>
+     *   <li>Student Name (required)</li>
+     *   <li>Course Code</li>
+     *   <li>Course Title</li>
+     *   <li>Score (numeric, required)</li>
+     * </ul>
+     * </p>
+     * 
+     * <p><b>Validation:</b>
+     * <ul>
+     *   <li>Student ID and Name must not be empty</li>
+     *   <li>Score must be a valid integer</li>
+     * </ul>
+     * </p>
+     * 
+     * @return a {@link VBox} containing the submit score interface
+     * 
+     * @see #createVerifyTab()
+     * @see #createCheckTab()
+     */
+    private VBox createSubmitTab() {
+        VBox vbox = new VBox(15);
+        vbox.setPadding(new Insets(20));
+        vbox.setAlignment(Pos.TOP_CENTER);
+
+        Label title = new Label("Submit Course Score");
+        title.setFont(Font.font("Arial", FontWeight.BOLD, 18));
+
+        GridPane grid = new GridPane();
+        grid.setVgap(10);
+        grid.setHgap(10);
+        grid.setAlignment(Pos.CENTER);
+
+        TextField studentIdField = new TextField();
+        studentIdField.setPromptText("e.g. CIS/STE/22/1088");
+
+        TextField studentNameField = new TextField();
+        studentNameField.setPromptText("e.g. John Doe");
+
+        TextField courseCodeField = new TextField();
+        courseCodeField.setPromptText("e.g. SEN301");
+
+        TextField courseTitleField = new TextField();
+        courseTitleField.setPromptText("e.g. Software Engineering");
+
+        TextField scoreField = new TextField();
+        scoreField.setPromptText("e.g. 75");
+
+        grid.add(new Label("Student ID:"), 0, 0);
+        grid.add(studentIdField, 1, 0);
+        grid.add(new Label("Student Name:"), 0, 1);
+        grid.add(studentNameField, 1, 1);
+        grid.add(new Label("Course Code:"), 0, 2);
+        grid.add(courseCodeField, 1, 2);
+        grid.add(new Label("Course Title:"), 0, 3);
+        grid.add(courseTitleField, 1, 3);
+        grid.add(new Label("Score:"), 0, 4);
+        grid.add(scoreField, 1, 4);
+
+        Label message = new Label();
+        message.setStyle("-fx-text-fill: green;");
+
+        Button submitBtn = new Button("Submit");
+        submitBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20;");
+        submitBtn.setOnAction(e -> {
+            String key = studentIdField.getText().trim() + ":" + courseCodeField.getText().trim();
+            try {
+                int score = Integer.parseInt(scoreField.getText().trim());
+                if (studentIdField.getText().trim().isEmpty() || studentNameField.getText().trim().isEmpty()) {
+                    message.setStyle("-fx-text-fill: red;");
+                    message.setText("Student ID and Name are required");
+                    return;
+                }
+                Result r = new Result(
+                    studentIdField.getText().trim(),
+                    studentNameField.getText().trim(),
+                    courseCodeField.getText().trim(),
+                    courseTitleField.getText().trim(),
+                    score
+                );
+                results.put(key, r);
+                message.setStyle("-fx-text-fill: green;");
+                message.setText("Score submitted successfully!");
+                studentIdField.clear();
+                studentNameField.clear();
+                courseCodeField.clear();
+                courseTitleField.clear();
+                scoreField.clear();
+            } catch (NumberFormatException ex) {
+                message.setStyle("-fx-text-fill: red;");
+                message.setText("Please enter a valid number for score");
+            }
+        });
+
+        vbox.getChildren().addAll(title, grid, submitBtn, message);
+        return vbox;
+    }
+
+    /**
+     * Creates and returns the UI for verifying course scores.
+     * 
+     * <p>This tab enables verification officers to locate a previously submitted result
+     * by student ID and course code, review the submitted information, and provide a
+     * verified score. Upon verification, the result is marked as verified.</p>
+     * 
+     * <p><b>Input Fields:</b>
+     * <ul>
+     *   <li>Student ID (required)</li>
+     *   <li>Course Code (required)</li>
+     *   <li>Verified Score (numeric, required)</li>
+     * </ul>
+     * </p>
+     * 
+     * <p><b>Process:</b>
+     * <ol>
+     *   <li>User enters Student ID and Course Code</li>
+     *   <li>System locates the corresponding Result</li>
+     *   <li>User enters the verified score</li>
+     *   <li>Upon clicking "Verify", the score is updated and status is marked as verified</li>
+     * </ol>
+     * </p>
+     * 
+     * @return a {@link VBox} containing the verify score interface
+     * 
+     * @see #createSubmitTab()
+     * @see #createCheckTab()
+     */
+    private VBox createVerifyTab() {
+        VBox vbox = new VBox(15);
+        vbox.setPadding(new Insets(20));
+        vbox.setAlignment(Pos.TOP_CENTER);
+
+        Label title = new Label("Verify Student Score");
+        title.setFont(Font.font("Arial", FontWeight.BOLD, 18));
+
+        GridPane grid = new GridPane();
+        grid.setVgap(10);
+        grid.setHgap(10);
+        grid.setAlignment(Pos.CENTER);
+
+        TextField studentIdField = new TextField();
+        studentIdField.setPromptText("Student ID");
+
+        TextField courseCodeField = new TextField();
+        courseCodeField.setPromptText("Course Code");
+
+        TextField verifiedScoreField = new TextField();
+        verifiedScoreField.setPromptText("Verified Score");
+
+        grid.add(new Label("Student ID:"), 0, 0);
+        grid.add(studentIdField, 1, 0);
+        grid.add(new Label("Course Code:"), 0, 1);
+        grid.add(courseCodeField, 1, 1);
+        grid.add(new Label("Verified Score:"), 0, 2);
+        grid.add(verifiedScoreField, 1, 2);
+
+        Label message = new Label();
+
+        Button verifyBtn = new Button("Verify");
+        verifyBtn.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 8 20;");
+        verifyBtn.setOnAction(e -> {
+            String key = studentIdField.getText().trim() + ":" + courseCodeField.getText().trim();
+            if (results.containsKey(key)) {
+                try {
+                    int score = Integer.parseInt(verifiedScoreField.getText().trim());
+                    Result r = results.get(key);
+                    r.score = score;
+                    r.verified = true;
+                    message.setStyle("-fx-text-fill: green;");
+                    message.setText("Verification updated for " + r.studentName);
+                    verifiedScoreField.clear();
+                } catch (NumberFormatException ex) {
+                    message.setStyle("-fx-text-fill: red;");
+                    message.setText("Enter a valid score");
+                }
+            } else {
+                message.setStyle("-fx-text-fill: red;");
+                message.setText("No submission found for this student/course");
+            }
+        });
+
+        vbox.getChildren().addAll(title, grid, verifyBtn, message);
+        return vbox;
+    }
+
+    /**
+     * Creates and returns the UI for checking verification status.
+     * 
+     * <p>This tab allows users to query the verification status of a submitted course result.
+     * Upon finding a matching result, all relevant information is displayed including the
+     * current verification status.</p>
+     * 
+     * <p><b>Input Fields:</b>
+     * <ul>
+     *   <li>Student ID (required)</li>
+     *   <li>Course Code (required)</li>
+     * </ul>
+     * </p>
+     * 
+     * <p><b>Display Information:</b>
+     * <ul>
+     *   <li>Student ID and Name</li>
+     *   <li>Course Code and Title</li>
+     *   <li>Verified Score</li>
+     *   <li>Verification Status (Verified or Pending Verification)</li>
+     * </ul>
+     * </p>
+     * 
+     * @return a {@link VBox} containing the check status interface
+     * 
+     * @see #createSubmitTab()
+     * @see #createVerifyTab()
+     */
+    private VBox createCheckTab() {
+        VBox vbox = new VBox(15);
+        vbox.setPadding(new Insets(20));
+        vbox.setAlignment(Pos.TOP_CENTER);
+
+        Label title = new Label("Check Verification Status");
+        title.setFont(Font.font("Arial", FontWeight.BOLD, 18));
+
+        GridPane grid = new GridPane();
+        grid.setVgap(10);
+        grid.setHgap(10);
+        grid.setAlignment(Pos.CENTER);
+
+        TextField studentIdField = new TextField();
+        studentIdField.setPromptText("Student ID");
+
+        TextField courseCodeField = new TextField();
+        courseCodeField.setPromptText("Course Code");
+
+        grid.add(new Label("Student ID:"), 0, 0);
+        grid.add(studentIdField, 1, 0);
+        grid.add(new Label("Course Code:"), 0, 1);
+        grid.add(courseCodeField, 1, 1);
+
+        Button checkBtn = new Button("Check Status");
+        checkBtn.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white; -fx-padding: 8 20;");
+
+        // Result display area
+        GridPane resultGrid = new GridPane();
+        resultGrid.setVgap(8);
+        resultGrid.setHgap(10);
+        resultGrid.setPadding(new Insets(15));
+        resultGrid.setStyle("-fx-border-color: #ccc; -fx-border-radius: 5;");
+        resultGrid.setVisible(false);
+
+        Label lblStudentId = new Label();
+        Label lblStudentName = new Label();
+        Label lblCourseCode = new Label();
+        Label lblCourseTitle = new Label();
+        Label lblScore = new Label();
+        Label lblStatus = new Label();
+
+        resultGrid.add(new Label("Student ID:"), 0, 0);
+        resultGrid.add(lblStudentId, 1, 0);
+        resultGrid.add(new Label("Student Name:"), 0, 1);
+        resultGrid.add(lblStudentName, 1, 1);
+        resultGrid.add(new Label("Course Code:"), 0, 2);
+        resultGrid.add(lblCourseCode, 1, 2);
+        resultGrid.add(new Label("Course Title:"), 0, 3);
+        resultGrid.add(lblCourseTitle, 1, 3);
+        resultGrid.add(new Label("Verified Score:"), 0, 4);
+        resultGrid.add(lblScore, 1, 4);
+        resultGrid.add(new Label("Status:"), 0, 5);
+        resultGrid.add(lblStatus, 1, 5);
+
+        Label errorMsg = new Label();
+        errorMsg.setStyle("-fx-text-fill: red;");
+
+        checkBtn.setOnAction(e -> {
+            String key = studentIdField.getText().trim() + ":" + courseCodeField.getText().trim();
+            if (results.containsKey(key)) {
+                Result r = results.get(key);
+                lblStudentId.setText(r.studentId);
+                lblStudentName.setText(r.studentName);
+                lblCourseCode.setText(r.courseCode);
+                lblCourseTitle.setText(r.courseTitle);
+                lblScore.setText(String.valueOf(r.score));
+                lblStatus.setText(r.verified ? "Verified" : "Pending Verification");
+                lblStatus.setStyle(r.verified ? "-fx-text-fill: green;" : "-fx-text-fill: orange;");
+                
+                resultGrid.setVisible(true);
+                errorMsg.setText("");
+            } else {
+                resultGrid.setVisible(false);
+                errorMsg.setText("No result found for this Student ID and Course Code");
+            }
+        });
+
+        vbox.getChildren().addAll(title, grid, checkBtn, errorMsg, resultGrid);
+        return vbox;
+    }
+
+    /**
+     * The entry point for the JavaFX application.
+     * 
+     * <p>This main method is called when the application is launched from the command line.
+     * It passes control to the JavaFX runtime, which then calls the {@link #start(Stage)}
+     * method.</p>
+     * 
+     * @param args command-line arguments (not used)
+     * 
+     * @see Application#launch(String[])
+     */
+    public static void main(String[] args) {
+        launch(args);
+    }
+}
